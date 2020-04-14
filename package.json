@@ -1,0 +1,22 @@
+{
+  "name": "@randomrod/lib-nats-client",
+  "version": "2.0.0",
+  "description": "Base library for NATS.io-based microservices",
+  "main": "dist/index.js",
+  "typings": "./dist/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RandomDynamix/lib-nats-client.git"
+  },
+  "author": "randomrod",
+  "license": "ISC",
+  "dependencies": {
+    "nats": "^1.4.8"
+  },
+  "devDependencies": {
+    "@types/node": "^12.12.6"
+  }
+}
