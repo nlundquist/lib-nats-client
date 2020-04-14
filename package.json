@@ -1,5 +1,5 @@
 {
-  "name": "@randomrod/lib-nats-client",
+  "name": "@randomdynamix/lib-nats-client",
   "version": "2.0.0",
   "description": "Base library for NATS.io-based microservices",
   "main": "dist/index.js",
