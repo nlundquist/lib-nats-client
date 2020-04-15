@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const EventEmitter = require("events");
 const NATS = require("nats");
 class NATSClient extends EventEmitter {
-    constructor(serviceName, logLevel) {
+    constructor(serviceName) {
         super();
         this.serviceName = serviceName;
         this.logLevel = process.env.LOG_LEVEL || 'info';
@@ -24,8 +24,6 @@ class NATSClient extends EventEmitter {
         this.natsTimeout = 3000;
         this.natsClient = null;
         this.natsSubscriptions = [];
-        if (logLevel)
-            this.logLevel = logLevel;
         //Register Global Cleanup Handler
         process.on('exit', () => {
             this.shutdown();

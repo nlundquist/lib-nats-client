@@ -18,11 +18,9 @@ export default class NATSClient extends EventEmitter {
     natsClient: any         = null;
     natsSubscriptions: any  = [];
     
-    constructor(public serviceName: string, logLevel?: string) {
+    constructor(public serviceName: string) {
         super();
 
-        if(logLevel) this.logLevel = logLevel;
-        
         //Register Global Cleanup Handler
         process.on('exit', () => {
             this.shutdown();
@@ -170,7 +168,7 @@ export default class NATSClient extends EventEmitter {
         }
     }
 
-    queryTopic(topic: string, query: string, timeOutOverride: number) {
+    queryTopic(topic: string, query: string, timeOutOverride?: number) {
         return new Promise((resolve, reject) => {
             try {
                 this.natsClient.requestOne(topic, query, {}, ((timeOutOverride) ? timeOutOverride : this.natsTimeout), (response: any) => {
