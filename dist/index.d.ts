@@ -6,7 +6,7 @@ declare interface NATSTopicHandler {
 declare class NATSClient {
     constructor(serviceName: string, logLevel?: string);
 
-    init(): any;
+    init(): Promise<void>;
     shutdown(): void;
 
     log(level: string, correlation: string, entry: string): void;
