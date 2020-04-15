@@ -1,6 +1,6 @@
 
 declare interface NATSTopicHandler {
-    (request: string, replyTo: string, topic: string): string;
+    async (request: string, replyTo: string, topic: string): string;
 }
 
 declare class NATSClient {

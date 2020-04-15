@@ -175,4 +175,4 @@ class NATSClient extends EventEmitter {
         });
     }
 }
-exports.default = NATSClient;
+exports.NATSClient = NATSClient;

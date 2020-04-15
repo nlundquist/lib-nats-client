@@ -4,10 +4,10 @@ import EventEmitter = require('events');
 import NATS         = require('nats');
 
 export interface NATSTopicHandler {
-    (request: string, replyTo: string, topic: string): string;
+    async (request: string, replyTo: string, topic: string): string;
 }
 
-export default class NATSClient extends EventEmitter {
+export class NATSClient extends EventEmitter {
     logLevel: string        = process.env.LOG_LEVEL     || 'info';
     natsServer: string      = process.env.NATS_SERVER   || '127.0.0.1';
     natsPort: string        = process.env.NATS_PORT     || '4222';
