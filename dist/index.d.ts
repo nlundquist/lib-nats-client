@@ -14,5 +14,5 @@ declare class NATSClient {
     deRegisterTopicHandlers(): void;
 
     publishTopic(topic: string, topicData: string): void;
-    queryTopic(topic: string, query: string, timeOutOverride: number): any;
+    queryTopic(topic: string, query: string, timeOutOverride: number): Promise<any>;
 }
