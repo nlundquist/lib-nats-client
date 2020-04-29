@@ -58,11 +58,6 @@ class NATSClient extends EventEmitter {
                 else {
                     natsConfig.servers.push(`nats://${this.natsServer}:${this.natsPort}`);
                 }
-                // if(this.natsUser.length > 0) {
-                //     natsURL = `nats://${this.natsUser}:${this.natsPwd}@${this.natsServer}:${this.natsPort}`;
-                // } else {
-                //     natsURL = `nats://${this.natsServer}:${this.natsPort}`;
-                // }
                 this.emit('info', 'NATSClient', `Attempting to Connect to NATS as User: ${this.natsUser}`);
                 this.natsClient = NATS.connect(natsConfig);
                 //One-time Listeners
@@ -94,6 +89,7 @@ class NATSClient extends EventEmitter {
                 this.natsClient.on('close', () => {
                     this.natsConnected = false;
                     this.emit('info', 'NATSClient', 'NATS Closed');
+                    this.emit('exit', 'NATSClient', 'Max NATS Connect or Reconnect Attempts Reached, Shutting Down');
                 });
             }
             catch (err) {
