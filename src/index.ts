@@ -10,6 +10,7 @@ export interface NATSTopicHandler {
 export class NATSClient extends EventEmitter {
     logLevel: string        = process.env.LOG_LEVEL     || 'info';
     natsServer: string      = process.env.NATS_SERVER   || '127.0.0.1';
+    natsCluster: string     = process.env.NATS_CLUSTER  || '';              //az1.nats.mesh,az2.nats.mesh,az3.nats.mesh
     natsPort: string        = process.env.NATS_PORT     || '4222';
     natsUser: string        = process.env.NATS_USER     || '';
     natsPwd: string         = process.env.NATS_PWD      || '';
@@ -42,20 +43,34 @@ export class NATSClient extends EventEmitter {
     init() {
         return new Promise( async (resolve, reject) => {
             try {
-                let natsURL: string = "";
-                if(this.natsUser.length > 0) {
-                    natsURL = `nats://${this.natsUser}:${this.natsPwd}@${this.natsServer}:${this.natsPort}`;
+                let natsConfig: any = {
+                    servers: [],
+                    user: this.natsUser,
+                    pass: this.natsPwd
+                };
+
+                if(this.natsCluster.length > 0) {
+                    let servers = this.natsCluster.split(',');
+                    for(let server of servers) {
+                        natsConfig.servers.push(`nats://${server}:${this.natsPort}`);
+                    }
                 } else {
-                    natsURL = `nats://${this.natsServer}:${this.natsPort}`;
+                    natsConfig.servers.push(`nats://${this.natsServer}:${this.natsPort}`);
                 }
 
-                this.emit('info', 'NATSClient', `Connecting to: ${natsURL} as User: ${this.natsUser}`);
-                this.natsClient = NATS.connect({ 'url': natsURL });
+                // if(this.natsUser.length > 0) {
+                //     natsURL = `nats://${this.natsUser}:${this.natsPwd}@${this.natsServer}:${this.natsPort}`;
+                // } else {
+                //     natsURL = `nats://${this.natsServer}:${this.natsPort}`;
+                // }
+
+                this.emit('info', 'NATSClient', `Attempting to Connect to NATS as User: ${this.natsUser}`);
+                this.natsClient = NATS.connect(natsConfig);
 
                 //One-time Listeners
                 this.natsClient.once('connect', () => {
                     this.natsConnected = true;
-                    this.emit('info', 'NATSClient', 'NATS Connected');
+                    this.emit('info', 'NATSClient', `NATS Connected: ${this.natsClient.currentServer.url.host}`);
                     return resolve();
                 });
 
@@ -81,7 +96,7 @@ export class NATSClient extends EventEmitter {
 
                 this.natsClient.on('reconnect', () => {
                     this.natsConnected = true;
-                    this.emit('info', 'NATSClient', 'NATS Reconnected');
+                    this.emit('info', 'NATSClient', `NATS Reconnected: ${this.natsClient.currentServer.url.host}`);
                 });
 
                 this.natsClient.on('close', () => {
