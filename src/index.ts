@@ -10,12 +10,13 @@ export interface NATSTopicHandler {
 export class NATSClient extends EventEmitter {
     logLevel: string        = process.env.LOG_LEVEL     || 'info';
     natsServer: string      = process.env.NATS_SERVER   || '127.0.0.1';
-    natsCluster: string     = process.env.NATS_CLUSTER  || '';              //az1.nats.mesh,az2.nats.mesh,az3.nats.mesh
+    natsCluster: string     = process.env.NATS_CLUSTER  || '';
     natsPort: string        = process.env.NATS_PORT     || '4222';
     natsUser: string        = process.env.NATS_USER     || '';
     natsPwd: string         = process.env.NATS_PWD      || '';
+    natsTimeout: number     = parseInt(process.env.NATS_TIMEOUT  || '7500');
+
     natsConnected: boolean  = false;
-    natsTimeout: number     = 3000;
     natsClient: any         = null;
     natsSubscriptions: any  = [];
     

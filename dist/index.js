@@ -17,12 +17,12 @@ class NATSClient extends EventEmitter {
         this.serviceName = serviceName;
         this.logLevel = process.env.LOG_LEVEL || 'info';
         this.natsServer = process.env.NATS_SERVER || '127.0.0.1';
-        this.natsCluster = process.env.NATS_CLUSTER || ''; //az1.nats.mesh,az2.nats.mesh,az3.nats.mesh
+        this.natsCluster = process.env.NATS_CLUSTER || '';
         this.natsPort = process.env.NATS_PORT || '4222';
         this.natsUser = process.env.NATS_USER || '';
         this.natsPwd = process.env.NATS_PWD || '';
+        this.natsTimeout = parseInt(process.env.NATS_TIMEOUT || '7500');
         this.natsConnected = false;
-        this.natsTimeout = 3000;
         this.natsClient = null;
         this.natsSubscriptions = [];
         //Register Global Cleanup Handler
