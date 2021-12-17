@@ -1,26 +1,24 @@
-"use strict";
-
-import EventEmitter = require('events');
-import NATS         = require('nats');
+import EventEmitter from 'events';
+import NATS         from 'nats';
 
 export interface NATSTopicHandler {
     async (request: string, replyTo: string, topic: string): string;
 }
 
 export class NATSClient extends EventEmitter {
-    logLevel: string        = process.env.LOG_LEVEL     || 'info';
-    natsServer: string      = process.env.NATS_SERVER   || '127.0.0.1';
-    natsCluster: string     = process.env.NATS_CLUSTER  || '';
-    natsPort: string        = process.env.NATS_PORT     || '4222';
-    natsUser: string        = process.env.NATS_USER     || '';
-    natsPwd: string         = process.env.NATS_PWD      || '';
-    natsTimeout: number     = parseInt(process.env.NATS_TIMEOUT  || '7500');
+    private logLevel: string        = process.env.LOG_LEVEL     || 'info';
+    private natsServer: string      = process.env.NATS_SERVER   || '127.0.0.1';
+    private natsCluster: string     = process.env.NATS_CLUSTER  || '';
+    private natsPort: string        = process.env.NATS_PORT     || '4222';
+    private natsUser: string        = process.env.NATS_USER     || '';
+    private natsPwd: string         = process.env.NATS_PWD      || '';
+    private natsTimeout: number     = parseInt(process.env.NATS_TIMEOUT  || '7500');
 
-    natsConnected: boolean  = false;
-    natsClient: any         = null;
-    natsSubscriptions: any  = [];
+    private natsConnected: boolean  = false;
+    private natsClient: any         = null;
+    private natsSubscriptions: any  = [];
     
-    constructor(public serviceName: string) {
+    constructor(private serviceName: string) {
         super();
 
         //Register Global Cleanup Handler
@@ -42,7 +40,7 @@ export class NATSClient extends EventEmitter {
     }
 
     init() {
-        return new Promise( async (resolve, reject) => {
+        return new Promise<void>( async (resolve, reject) => {
             try {
                 let natsConfig: any = {
                     servers: [],

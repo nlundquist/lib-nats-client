@@ -1,17 +1,6 @@
-"use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const EventEmitter = require("events");
-const NATS = require("nats");
-class NATSClient extends EventEmitter {
+import EventEmitter from 'events';
+import NATS from 'nats';
+export class NATSClient extends EventEmitter {
     constructor(serviceName) {
         super();
         this.serviceName = serviceName;
@@ -25,11 +14,9 @@ class NATSClient extends EventEmitter {
         this.natsConnected = false;
         this.natsClient = null;
         this.natsSubscriptions = [];
-        //Register Global Cleanup Handler
         process.on('exit', () => {
             this.shutdown();
         });
-        //Catch Microservices Events
         this.on('debug', (correlation, eventInfo) => {
             this.log('debug', correlation, eventInfo);
         });
@@ -38,11 +25,10 @@ class NATSClient extends EventEmitter {
         });
         this.on('error', (correlation, eventInfo) => {
             this.log('error', correlation, eventInfo);
-            //NOTE:  If Shutdown is desired on Error - define an on Error handler in derived class
         });
     }
     init() {
-        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+        return new Promise(async (resolve, reject) => {
             try {
                 let natsConfig = {
                     servers: [],
@@ -60,7 +46,6 @@ class NATSClient extends EventEmitter {
                 }
                 this.emit('info', 'NATSClient', `Attempting to Connect to NATS as User: ${this.natsUser}`);
                 this.natsClient = NATS.connect(natsConfig);
-                //One-time Listeners
                 this.natsClient.once('connect', () => {
                     this.natsConnected = true;
                     this.emit('info', 'NATSClient', `NATS Connected: ${this.natsClient.currentServer.url.host}`);
@@ -70,7 +55,6 @@ class NATSClient extends EventEmitter {
                     this.emit('error', 'NATSClient', `FATAL NATS Error:  ${err}`);
                     return reject();
                 });
-                //Persistent Listeners
                 this.natsClient.on('error', (err) => {
                     this.emit('error', 'NATSClient', `NATS Error:  ${err}`);
                 });
@@ -96,7 +80,7 @@ class NATSClient extends EventEmitter {
                 this.emit('error', 'NATSClient', `FATAL NATS Initialization Error:  ${err}`);
                 return reject();
             }
-        }));
+        });
     }
     shutdown() {
         if (this.natsConnected) {
@@ -104,7 +88,6 @@ class NATSClient extends EventEmitter {
                 this.emit('info', 'NATSClient', 'Shutdown - deRegistering Handlers and Closing NATS Connection');
                 this.deRegisterTopicHandlers();
                 this.natsClient.close();
-                //This is to avoid this executing twice, if this function is called manually
                 this.natsConnected = false;
             }
             catch (err) {
@@ -117,8 +100,6 @@ class NATSClient extends EventEmitter {
     }
     log(level, correlation, entry) {
         try {
-            //Supported Levels (highest to lowest): debug, info, error
-            // Higher levels inclusive of lower levels
             if ((this.logLevel === level)
                 || ((this.logLevel === 'info') && (level === 'error'))
                 || ((this.logLevel === 'debug') && ((level === 'error') || (level === 'info')))) {
@@ -184,4 +165,3 @@ class NATSClient extends EventEmitter {
         });
     }
 }
-exports.NATSClient = NATSClient;
