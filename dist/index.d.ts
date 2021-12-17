@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import EventEmitter from 'events';
 export interface NATSTopicHandler {
-    async(request: string, replyTo: string, topic: string): string;
+    async(request: string, replyTo: string, topic: string): Promise<string>;
 }
 export declare class NATSClient extends EventEmitter {
     serviceName: string;
