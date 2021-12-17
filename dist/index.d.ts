@@ -4,7 +4,7 @@ export interface NATSTopicHandler {
     async(request: string, replyTo: string, topic: string): string;
 }
 export declare class NATSClient extends EventEmitter {
-    private serviceName;
+    serviceName: string;
     private logLevel;
     private natsServer;
     private natsCluster;

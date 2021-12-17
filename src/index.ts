@@ -18,7 +18,7 @@ export class NATSClient extends EventEmitter {
     private natsClient: any         = null;
     private natsSubscriptions: any  = [];
     
-    constructor(private serviceName: string) {
+    constructor(public serviceName: string) {
         super();
 
         //Register Global Cleanup Handler
