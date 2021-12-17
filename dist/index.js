@@ -108,18 +108,16 @@ export class NATSClient extends EventEmitter {
         }
         catch (err) { }
     }
-    registerTopicHandler(topic, topicHandler, queue = '') {
+    registerTopicHandler(topic, topicHandler, queue) {
         try {
             let subscription = {
                 topic: topic,
                 sid: null,
             };
-            if (queue !== '') {
-                subscription.sid = this.natsClient.subscribe(topic, { 'queue': queue }, topicHandler);
-            }
-            else {
+            if (!queue)
                 subscription.sid = this.natsClient.subscribe(topic, topicHandler);
-            }
+            else
+                subscription.sid = this.natsClient.subscribe(topic, { 'queue': queue }, topicHandler);
             this.natsSubscriptions.push(subscription);
             this.emit('info', 'NATSClient', `Registered Topic Handler (sid: ${subscription.sid}) for: ${topic}`);
         }

@@ -2,7 +2,7 @@ import EventEmitter from 'events';
 import NATS         from 'nats';
 
 export interface NATSTopicHandler {
-    async (request: string, replyTo: string, topic: string): Promise<void>;
+    (request: string, replyTo: string, topic: string): Promise<void>;
 }
 
 export class NATSClient extends EventEmitter {
@@ -137,18 +137,15 @@ export class NATSClient extends EventEmitter {
         } catch(err) {}
     }
 
-    registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue: string = ''): void {
+    registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue: string | null): void {
         try {
             let subscription = {
                 topic: topic,
                 sid: null,
             };
 
-            if(queue !== '') {
-                subscription.sid = this.natsClient.subscribe(topic, { 'queue': queue }, topicHandler);
-            } else {
-                subscription.sid = this.natsClient.subscribe(topic, topicHandler);
-            }
+            if(!queue) subscription.sid = this.natsClient.subscribe(topic, topicHandler);
+            else       subscription.sid = this.natsClient.subscribe(topic, { 'queue': queue }, topicHandler);
 
             this.natsSubscriptions.push(subscription);
             this.emit('info', 'NATSClient', `Registered Topic Handler (sid: ${subscription.sid}) for: ${topic}`);

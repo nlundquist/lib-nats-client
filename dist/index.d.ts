@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import EventEmitter from 'events';
 export interface NATSTopicHandler {
-    async(request: string, replyTo: string, topic: string): Promise<void>;
+    (request: string, replyTo: string, topic: string): Promise<void>;
 }
 export declare class NATSClient extends EventEmitter {
     serviceName: string;
@@ -19,7 +19,7 @@ export declare class NATSClient extends EventEmitter {
     init(): Promise<void>;
     shutdown(): void;
     log(level: string, correlation: string, entry: string): void;
-    registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue?: string): void;
+    registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue: string | null): void;
     deRegisterTopicHandlers(): void;
     publishTopic(topic: string, topicData: string): void;
     queryTopic(topic: string, query: string, timeOutOverride?: number): Promise<string>;
