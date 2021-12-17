@@ -2,7 +2,7 @@ import EventEmitter from 'events';
 import NATS         from 'nats';
 
 export interface NATSTopicHandler {
-    async (request: string, replyTo: string, topic: string): void;
+    async (request: string, replyTo: string, topic: string): Promise<void>;
 }
 
 export class NATSClient extends EventEmitter {
