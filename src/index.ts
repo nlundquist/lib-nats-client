@@ -39,7 +39,7 @@ export class NATSClient extends EventEmitter {
         });
     }
 
-    init() {
+    init(): Promise<void> {
         return new Promise<void>( async (resolve, reject) => {
             try {
                 let natsConfig: any = {
@@ -105,7 +105,7 @@ export class NATSClient extends EventEmitter {
         });
     }
 
-    shutdown() {
+    shutdown(): void {
         if(this.natsConnected) {
             try {
                 this.emit('info', 'NATSClient', 'Shutdown - deRegistering Handlers and Closing NATS Connection');
@@ -124,7 +124,7 @@ export class NATSClient extends EventEmitter {
         }
     }
 
-    log(level: string, correlation: string, entry: string) {
+    log(level: string, correlation: string, entry: string): void {
         try {
             //Supported Levels (highest to lowest): debug, info, error
             // Higher levels inclusive of lower levels
@@ -137,7 +137,7 @@ export class NATSClient extends EventEmitter {
         } catch(err) {}
     }
 
-    registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue: string = '') {
+    registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue: string = ''): void {
         try {
             let subscription = {
                 topic: topic,
@@ -158,7 +158,7 @@ export class NATSClient extends EventEmitter {
         }
     }
 
-    deRegisterTopicHandlers() {
+    deRegisterTopicHandlers(): void {
         try {
             for(let subscription of this.natsSubscriptions) {
                 this.natsClient.unsubscribe(subscription.sid);
@@ -169,7 +169,7 @@ export class NATSClient extends EventEmitter {
         }
     }
 
-    publishTopic(topic: string, topicData: string) {
+    publishTopic(topic: string, topicData: string): void {
         try {
             this.natsClient.publish(topic, topicData);
         } catch(err) {
@@ -177,12 +177,12 @@ export class NATSClient extends EventEmitter {
         }
     }
 
-    queryTopic(topic: string, query: string, timeOutOverride?: number) {
-        return new Promise((resolve, reject) => {
+    queryTopic(topic: string, query: string, timeOutOverride?: number): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
             try {
                 this.natsClient.requestOne(topic, query, {}, ((timeOutOverride) ? timeOutOverride : this.natsTimeout), (response: any) => {
 
-                    if(response && response.code && response.code === NATS.REQ_TIMEOUT) {
+                    if(response?.code === NATS.REQ_TIMEOUT) {
                         let error = `queryTopic (${topic}) TIMEOUT`;
                         return reject(error);
                     }

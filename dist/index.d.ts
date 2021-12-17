@@ -22,5 +22,5 @@ export declare class NATSClient extends EventEmitter {
     registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue?: string): void;
     deRegisterTopicHandlers(): void;
     publishTopic(topic: string, topicData: string): void;
-    queryTopic(topic: string, query: string, timeOutOverride?: number): Promise<unknown>;
+    queryTopic(topic: string, query: string, timeOutOverride?: number): Promise<string>;
 }

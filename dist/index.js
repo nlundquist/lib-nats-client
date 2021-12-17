@@ -150,7 +150,7 @@ export class NATSClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             try {
                 this.natsClient.requestOne(topic, query, {}, ((timeOutOverride) ? timeOutOverride : this.natsTimeout), (response) => {
-                    if (response && response.code && response.code === NATS.REQ_TIMEOUT) {
+                    if (response?.code === NATS.REQ_TIMEOUT) {
                         let error = `queryTopic (${topic}) TIMEOUT`;
                         return reject(error);
                     }
