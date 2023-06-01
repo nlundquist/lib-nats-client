@@ -27,6 +27,9 @@ export class NATSClient extends EventEmitter {
         });
 
         //Catch Microservices Events
+        this.on('trace', (correlation: string, eventInfo: string) => {
+            this.log('trace', correlation, eventInfo);
+        });
         this.on('debug', (correlation: string, eventInfo: string) => {
             this.log('debug', correlation, eventInfo);
         });
@@ -131,7 +134,8 @@ export class NATSClient extends EventEmitter {
             
             if( (this.logLevel === level)
                 || ((this.logLevel === 'info') && (level === 'error'))
-                || ((this.logLevel === 'debug') && ((level === 'error') || (level === 'info')))) {
+                || ((this.logLevel === 'debug') && ((level === 'error') || (level === 'info')))
+                || ((this.logLevel === 'trace') && ((level === 'debug') || (level === 'error') || (level === 'info'))) ) {
                 console.log(`${this.serviceName} (${level}) | ${correlation} | ${entry}`);
             }
         } catch(err) {}

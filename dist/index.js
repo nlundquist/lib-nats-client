@@ -17,6 +17,9 @@ export class NATSClient extends EventEmitter {
         process.on('exit', () => {
             this.shutdown();
         });
+        this.on('trace', (correlation, eventInfo) => {
+            this.log('trace', correlation, eventInfo);
+        });
         this.on('debug', (correlation, eventInfo) => {
             this.log('debug', correlation, eventInfo);
         });
@@ -102,7 +105,8 @@ export class NATSClient extends EventEmitter {
         try {
             if ((this.logLevel === level)
                 || ((this.logLevel === 'info') && (level === 'error'))
-                || ((this.logLevel === 'debug') && ((level === 'error') || (level === 'info')))) {
+                || ((this.logLevel === 'debug') && ((level === 'error') || (level === 'info')))
+                || ((this.logLevel === 'trace') && ((level === 'debug') || (level === 'error') || (level === 'info')))) {
                 console.log(`${this.serviceName} (${level}) | ${correlation} | ${entry}`);
             }
         }
