@@ -1,24 +1,39 @@
-import EventEmitter from 'events';
-import NATS         from 'nats';
+import axios                                                          from 'axios';
+import { randomUUID }                                                 from "crypto";
+import EventEmitter                                                   from 'events';
+import { connect, Events, StringCodec, JSONCodec, jwtAuthenticator }  from 'nats';
+import nkeys                                                          from 'ts-nkeys';
+
+const stringCodec = StringCodec();
+const jsonCodec = JSONCodec();
 
 export interface NATSTopicHandler {
-    (request: string, replyTo: string, topic: string): Promise<void>;
+    (subscription: any): Promise<void>;
+}
+
+export enum LogLevel {
+    ERROR = 'error',
+    INFO  = 'info',
+    DEBUG = 'debug',
+    TRACE = 'trace'
 }
 
 export class NATSClient extends EventEmitter {
-    private logLevel: string        = process.env.LOG_LEVEL     || 'info';
-    private natsServer: string      = process.env.NATS_SERVER   || '127.0.0.1';
-    private natsCluster: string     = process.env.NATS_CLUSTER  || '';
-    private natsPort: string        = process.env.NATS_PORT     || '4222';
-    private natsUser: string        = process.env.NATS_USER     || '';
-    private natsPwd: string         = process.env.NATS_PWD      || '';
-    private natsTimeout: number     = parseInt(process.env.NATS_TIMEOUT  || '7500');
+    private logLevel: LogLevel         = <LogLevel>(process.env.LOG_LEVEL ?? LogLevel.INFO);
+    private stsEndpoint: string | null = process.env.STS_ENDPOINT ?? null;
 
-    private natsConnected: boolean  = false;
-    private natsClient: any         = null;
-    private natsSubscriptions: any  = [];
-    
-    constructor(public serviceName: string) {
+    private natsServers: string        = process.env.NATS_SERVERS   ?? '127.0.0.1:4222';
+    private natsNamespace: string      = process.env.NATS_NAMESPACE ?? 'Global';
+    private natsSeed: string | null    = process.env.NATS_SEED      ?? null;
+    private natsJWT: string | null     = process.env.NATS_JWT       ?? null;
+
+    private natsTimeout: number      = parseInt(process.env.NATS_TIMEOUT ?? '7500');
+
+    private natsClient: any          = null;
+    private natsClosed: any          = null;
+    private natsSubscriptions: any[] = [];
+
+    constructor(private serviceName: string) {
         super();
 
         //Register Global Cleanup Handler
@@ -27,174 +42,189 @@ export class NATSClient extends EventEmitter {
         });
 
         //Catch Microservices Events
-        this.on('trace', (correlation: string, eventInfo: string) => {
-            this.log('trace', correlation, eventInfo);
+        this.on(LogLevel.TRACE, (correlation: string, eventInfo: string) => {
+            this.logEvent(LogLevel.TRACE, correlation, eventInfo);
         });
-        this.on('debug', (correlation: string, eventInfo: string) => {
-            this.log('debug', correlation, eventInfo);
+        this.on(LogLevel.DEBUG, (correlation: string, eventInfo: string) => {
+            this.logEvent(LogLevel.DEBUG, correlation, eventInfo);
         });
-        this.on('info', (correlation: string, eventInfo: string) => {
-            this.log('info', correlation, eventInfo);
+        this.on(LogLevel.INFO, (correlation: string, eventInfo: string) => {
+            this.logEvent(LogLevel.INFO, correlation, eventInfo);
         });
-        this.on('error', (correlation: string, eventInfo: string) => {
-            this.log('error', correlation, eventInfo);
+        this.on(LogLevel.ERROR, (correlation: string, eventInfo: string) => {
+            this.logEvent(LogLevel.ERROR, correlation, eventInfo);
             //NOTE:  If Shutdown is desired on Error - define an on Error handler in derived class
         });
     }
 
-    init(): Promise<void> {
-        return new Promise<void>( async (resolve, reject) => {
-            try {
-                let natsConfig: any = {
-                    servers: [],
-                    user: this.natsUser,
-                    pass: this.natsPwd
-                };
+    async init(): Promise<void> {
+        try {
+            if(!this.natsSeed) throw 'NATS_SEED must be defined in the environment';
 
-                if(this.natsCluster.length > 0) {
-                    let servers = this.natsCluster.split(',');
-                    for(let server of servers) {
-                        natsConfig.servers.push(`nats://${server}:${this.natsPort}`);
-                    }
-                } else {
-                    natsConfig.servers.push(`nats://${this.natsServer}:${this.natsPort}`);
-                }
+            let natsConfig: any = {
+                servers:       this.natsServers,
+                authenticator: await this.createAuthenticator()
+            };
 
-                this.emit('info', 'NATSClient', `Attempting to Connect to NATS as User: ${this.natsUser}`);
-                this.natsClient = NATS.connect(natsConfig);
+            this.emit(LogLevel.INFO, 'NATSClient', `Attempting to Connect ${this.serviceName} to NATS`);
+            this.natsClient = await connect(natsConfig);
 
-                //One-time Listeners
-                this.natsClient.once('connect', () => {
-                    this.natsConnected = true;
-                    this.emit('info', 'NATSClient', `NATS Connected: ${this.natsClient.currentServer.url.host}`);
-                    return resolve();
-                });
+            this.emit(LogLevel.INFO, 'NATSClient', `${this.serviceName} Connected to: ${this.natsClient.getServer()}`);
+            this.natsClosed = this.natsClient.closed();
+            this.monitorNATSConnection();
 
-                this.natsClient.once('error', (err: any) => {
-                    this.emit('error', 'NATSClient', `FATAL NATS Error:  ${err}`);
-                    return reject();
-                });
+            //Persistent Listeners
+            this.natsClient.on(Events.Error, (err: any) => {
+                this.emit(LogLevel.ERROR, 'NATSClient', `NATS Error:  ${err}`);
+            });
 
-                //Persistent Listeners
-                this.natsClient.on('error', (err: any) => {
-                    this.emit('error', 'NATSClient', `NATS Error:  ${err}`);
-                });
+            this.natsClient.on(Events.Disconnect, () => {
+                this.emit(LogLevel.INFO, 'NATSClient', 'NATS Disconnected');
+            });
 
-                this.natsClient.on('disconnect', () => {
-                    this.natsConnected = false;
-                    this.emit('info', 'NATSClient', 'NATS Disconnected');
-                });
+            this.natsClient.on(Events.Reconnect, () => {
+                this.emit(LogLevel.INFO, 'NATSClient', `NATS Reconnected: ${this.natsClient.currentServer.url.host}`);
+            });
 
-                this.natsClient.on('reconnecting', () => {
-                    this.natsConnected = false;
-                    this.emit('info', 'NATSClient', 'NATS Reconnecting');
-                });
-
-                this.natsClient.on('reconnect', () => {
-                    this.natsConnected = true;
-                    this.emit('info', 'NATSClient', `NATS Reconnected: ${this.natsClient.currentServer.url.host}`);
-                });
-
-                this.natsClient.on('close', () => {
-                    this.natsConnected = false;
-                    this.emit('info', 'NATSClient', 'NATS Closed');
-                    this.emit('exit', 'NATSClient', 'Max NATS Connect or Reconnect Attempts Reached, Shutting Down');
-                });
-                
-            } catch(err) {
-                this.emit('error', 'NATSClient', `FATAL NATS Initialization Error:  ${err}`);
-                return reject();
-            }
-        });
-    }
-
-    shutdown(): void {
-        if(this.natsConnected) {
-            try {
-                this.emit('info', 'NATSClient', 'Shutdown - deRegistering Handlers and Closing NATS Connection');
-
-                this.deRegisterTopicHandlers();
-                this.natsClient.close();
-
-                //This is to avoid this executing twice, if this function is called manually
-                this.natsConnected = false;
-
-            } catch(err) {
-                this.emit('info', 'NATSClient', `Shutdown Error:  ${err}`);
-            }
-        } else {
-            this.emit('info', 'NATSClient', 'Shutdown - NATS is not connected');
+        } catch(err) {
+            this.emit(LogLevel.ERROR, 'NATSClient', `FATAL NATS Initialization Error:  ${err}`);
+            throw err;
         }
     }
 
-    log(level: string, correlation: string, entry: string): void {
+    async monitorNATSConnection() {
+        const closeErr = await this.natsClosed;
+        if(closeErr) {
+            this.emit(LogLevel.ERROR, 'NATSClient', `NATS Close Error: ${JSON.stringify(closeErr)}`);
+            process.exit(1);
+        } else {
+            this.emit(LogLevel.INFO, 'NATSClient', `NATS Client Connection has Closed`);
+            process.exit(0);
+        }
+    }
+
+    async shutdown(): Promise<void> {
         try {
-            //Supported Levels (highest to lowest): debug, info, error
+            this.emit(LogLevel.INFO, 'NATSClient', 'Shutdown - deRegistering Handlers and Draining/Closing the NATS Connection');
+
+            //this.deRegisterTopicHandlers();
+            await this.natsClient.drain();
+        } catch(err) {
+            this.emit(LogLevel.INFO, 'NATSClient', `NATS Shutdown Error:  ${JSON.stringify(err)}`);
+        }
+    }
+
+    logEvent(level: string, correlation: string, entry: string): void {
+        try {
+            //Supported Levels (highest to lowest): trace, debug, info, error
             // Higher levels inclusive of lower levels
-            
+
             if( (this.logLevel === level)
-                || ((this.logLevel === 'info') && (level === 'error'))
-                || ((this.logLevel === 'debug') && ((level === 'error') || (level === 'info')))
-                || ((this.logLevel === 'trace') && ((level === 'debug') || (level === 'error') || (level === 'info'))) ) {
+                || ((this.logLevel === LogLevel.INFO) && (level === LogLevel.ERROR))
+                || ((this.logLevel === LogLevel.DEBUG) && ((level === LogLevel.ERROR) || (level === LogLevel.INFO)))
+                || ((this.logLevel === LogLevel.TRACE) && ((level === LogLevel.DEBUG) || (level === LogLevel.ERROR) || (level === LogLevel.INFO))) ) {
                 console.log(`${this.serviceName} (${level}) | ${correlation} | ${entry}`);
             }
         } catch(err) {}
     }
 
+    private async createAuthenticator() {
+        if(this.natsJWT) {
+            return jwtAuthenticator(this.natsJWT, stringCodec.encode(<string>this.natsSeed));
+        } else {
+            const stsJWT: string = await this.requestJWTFromSTS();
+            return jwtAuthenticator(stsJWT, stringCodec.encode(<string>this.natsSeed));
+        }
+    }
+
+    private async requestJWTFromSTS() {
+        //Extract the NKey Pair from Seed
+        const nKeyPair: any = nkeys.fromSeed(Buffer.from(<string>this.natsSeed));
+
+        //Initiate Authorization Session
+        const requestID: string = randomUUID();
+        const initiateResult: any = await axios.get(`${this.stsEndpoint}/authorizationSession?requestID=${requestID}`);
+        if(!initiateResult.sessionID) throw 'No STS Session established';
+
+        //Construct Request & Sign
+        const stsRequest = {
+            requestID: requestID,
+            sessionID: initiateResult.sessionID,
+            namespace: this.natsNamespace,
+            nKeyUser: nKeyPair.getPublicKey(),
+        };
+        const verificationRequest = {
+            request: stsRequest,
+            verification: nKeyPair.sign(Buffer.from(JSON.stringify(stsRequest)))
+        };
+
+        //Post Authorization Verification
+        const verifyResult: any = await axios.post(`${this.stsEndpoint}/authorizationVerification`, verificationRequest);
+        if(!verifyResult.token) throw 'STS Authorization Verification Failed';
+
+        return verifyResult.token;
+    }
+
     registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue: string | null): void {
         try {
-            let subscription = {
-                topic: topic,
-                sid: null,
+            let natsSubscription: any = null;
+            if(!queue) natsSubscription = this.natsClient.subscribe(topic);
+            else       natsSubscription = this.natsClient.subscribe(topic, { 'queue': queue });
+
+            let subscriptionHandler = async (subscription: any) => {
+                for await (const message of subscription) {
+                    const correlation: string = `lib-nats-client: ${Date.now()}`;
+                    const jsonMessage: any = jsonCodec.decode(message.data);
+                    this.logEvent(LogLevel.TRACE, correlation, JSON.stringify(jsonMessage));
+
+                    let topicResponse: any = topicHandler(jsonMessage);
+                    if(typeof topicResponse != "object") topicResponse = { result: topicResponse };
+                    if(topicResponse === {}) topicResponse = { result: 'SUCCESS' };
+
+                    this.logEvent(LogLevel.TRACE, correlation, JSON.stringify(topicResponse));
+                    message.respond(jsonCodec.encode(topicResponse));
+                }
             };
 
-            if(!queue) subscription.sid = this.natsClient.subscribe(topic, topicHandler);
-            else       subscription.sid = this.natsClient.subscribe(topic, { 'queue': queue }, topicHandler);
+            this.natsSubscriptions.push(subscriptionHandler);
+            subscriptionHandler(natsSubscription);
 
-            this.natsSubscriptions.push(subscription);
-            this.emit('info', 'NATSClient', `Registered Topic Handler (sid: ${subscription.sid}) for: ${topic}`);
-
+            this.emit(LogLevel.INFO, 'NATSClient', `Registered Topic Handler for: ${topic}`);
         } catch(err) {
-            this.emit('error', 'NATSClient', `registerTopicHandler Error: ${err}`);
+            this.emit(LogLevel.ERROR, 'NATSClient', `registerTopicHandler Error: ${err}`);
         }
     }
 
-    deRegisterTopicHandlers(): void {
+    publishTopic(topic: string, jsonData: any): void {
         try {
-            for(let subscription of this.natsSubscriptions) {
-                this.natsClient.unsubscribe(subscription.sid);
-                this.emit('info', 'NATSClient', `deRegistered Topic: ${subscription.topic}`);
-            }
+            this.natsClient.publish(topic, jsonCodec.encode(jsonData));
         } catch(err) {
-            this.emit('error', 'NATSClient', `deRegisterTopicHandlers Error: ${err}`);
+            this.emit(LogLevel.ERROR, 'NATSClient', `publishTopic (${topic}) Error: ${err}`);
         }
     }
 
-    publishTopic(topic: string, topicData: string): void {
+    async queryTopic(topic: string, jsonQuery: any, timeOutOverride?: number): Promise<any> {
         try {
-            this.natsClient.publish(topic, topicData);
+            const requestOptions: any = { timeout: timeOutOverride ?? this.natsTimeout };
+            const response = await this.natsClient.request(topic, jsonCodec.encode(jsonQuery), requestOptions);
+            return jsonCodec.decode(response.data);
         } catch(err) {
-            this.emit('error', 'NATSClient', `publishTopic (${topic}) Error: ${err}`);
+            let error = `queryTopic (${topic}') Error: ${err}`;
+            this.emit(LogLevel.ERROR, 'NATSClient', error);
+            throw err;
         }
-    }
-
-    queryTopic(topic: string, query: string, timeOutOverride?: number): Promise<string> {
-        return new Promise<string>((resolve, reject) => {
-            try {
-                this.natsClient.requestOne(topic, query, {}, ((timeOutOverride) ? timeOutOverride : this.natsTimeout), (response: any) => {
-
-                    if(response?.code === NATS.REQ_TIMEOUT) {
-                        let error = `queryTopic (${topic}) TIMEOUT`;
-                        return reject(error);
-                    }
-                    
-                    return resolve(response);
-                });
-            } catch(err) {
-                let error = `queryTopic (${topic}') Error: ${err}`;
-                this.emit('error', 'NATSClient', error);
-                return reject(error);
-            }
-        });
     }
 }
+
+
+// deRegisterTopicHandlers(): void {
+//     try {
+//         for(let subscription of this.natsSubscriptions) {
+//             this.natsClient.unsubscribe(subscription.sid);
+//             this.emit(LogLevel.INFO, 'NATSClient', `deRegistered Topic: ${subscription.topic}`);
+//         }
+//     } catch(err) {
+//         this.emit(LogLevel.ERROR, 'NATSClient', `deRegisterTopicHandlers Error: ${err}`);
+//     }
+// }
+

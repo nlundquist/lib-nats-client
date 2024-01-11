@@ -1,26 +1,34 @@
 /// <reference types="node" />
 import EventEmitter from 'events';
 export interface NATSTopicHandler {
-    (request: string, replyTo: string, topic: string): Promise<void>;
+    (subscription: any): Promise<void>;
+}
+export declare enum LogLevel {
+    ERROR = "error",
+    INFO = "info",
+    DEBUG = "debug",
+    TRACE = "trace"
 }
 export declare class NATSClient extends EventEmitter {
-    serviceName: string;
+    private serviceName;
     private logLevel;
-    private natsServer;
-    private natsCluster;
-    private natsPort;
-    private natsUser;
-    private natsPwd;
+    private stsEndpoint;
+    private natsServers;
+    private natsNamespace;
+    private natsSeed;
+    private natsJWT;
     private natsTimeout;
-    private natsConnected;
     private natsClient;
+    private natsClosed;
     private natsSubscriptions;
     constructor(serviceName: string);
     init(): Promise<void>;
-    shutdown(): void;
-    log(level: string, correlation: string, entry: string): void;
+    monitorNATSConnection(): Promise<void>;
+    shutdown(): Promise<void>;
+    logEvent(level: string, correlation: string, entry: string): void;
+    private createAuthenticator;
+    private requestJWTFromSTS;
     registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue: string | null): void;
-    deRegisterTopicHandlers(): void;
-    publishTopic(topic: string, topicData: string): void;
-    queryTopic(topic: string, query: string, timeOutOverride?: number): Promise<string>;
+    publishTopic(topic: string, jsonData: any): void;
+    queryTopic(topic: string, jsonQuery: any, timeOutOverride?: number): Promise<any>;
 }
