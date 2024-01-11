@@ -25,9 +25,9 @@ export declare class NATSClient extends EventEmitter {
     init(): Promise<void>;
     monitorNATSConnection(): Promise<void>;
     shutdown(): Promise<void>;
-    logEvent(level: string, correlation: string, entry: string): void;
     private createAuthenticator;
     private requestJWTFromSTS;
+    logEvent(level: LogLevel, correlation: string, entry: string): void;
     registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue: string | null): void;
     publishTopic(topic: string, jsonData: any): void;
     queryTopic(topic: string, jsonQuery: any, timeOutOverride?: number): Promise<any>;

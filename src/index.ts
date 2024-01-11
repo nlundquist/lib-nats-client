@@ -114,20 +114,6 @@ export class NATSClient extends EventEmitter {
         }
     }
 
-    logEvent(level: string, correlation: string, entry: string): void {
-        try {
-            //Supported Levels (highest to lowest): trace, debug, info, error
-            // Higher levels inclusive of lower levels
-
-            if( (this.logLevel === level)
-                || ((this.logLevel === LogLevel.INFO) && (level === LogLevel.ERROR))
-                || ((this.logLevel === LogLevel.DEBUG) && ((level === LogLevel.ERROR) || (level === LogLevel.INFO)))
-                || ((this.logLevel === LogLevel.TRACE) && ((level === LogLevel.DEBUG) || (level === LogLevel.ERROR) || (level === LogLevel.INFO))) ) {
-                console.log(`${this.serviceName} (${level}) | ${correlation} | ${entry}`);
-            }
-        } catch(err) {}
-    }
-
     private async createAuthenticator() {
         if(this.natsJWT) {
             return jwtAuthenticator(this.natsJWT, stringCodec.encode(<string>this.natsSeed));
@@ -163,6 +149,20 @@ export class NATSClient extends EventEmitter {
         if(!verifyResult.token) throw 'STS Authorization Verification Failed';
 
         return verifyResult.token;
+    }
+
+    logEvent(level: LogLevel, correlation: string, entry: string): void {
+        try {
+            //Supported Levels (highest to lowest): trace, debug, info, error
+            // Higher levels inclusive of lower levels
+
+            if( (this.logLevel === level)
+                || ((this.logLevel === LogLevel.INFO) && (level === LogLevel.ERROR))
+                || ((this.logLevel === LogLevel.DEBUG) && ((level === LogLevel.ERROR) || (level === LogLevel.INFO)))
+                || ((this.logLevel === LogLevel.TRACE) && ((level === LogLevel.DEBUG) || (level === LogLevel.ERROR) || (level === LogLevel.INFO))) ) {
+                console.log(`${this.serviceName} (${level}) | ${correlation} | ${entry}`);
+            }
+        } catch(err) {}
     }
 
     registerTopicHandler(topic: string, topicHandler: NATSTopicHandler, queue: string | null): void {

@@ -90,17 +90,6 @@ export class NATSClient extends EventEmitter {
             this.emit(LogLevel.INFO, 'NATSClient', `NATS Shutdown Error:  ${JSON.stringify(err)}`);
         }
     }
-    logEvent(level, correlation, entry) {
-        try {
-            if ((this.logLevel === level)
-                || ((this.logLevel === LogLevel.INFO) && (level === LogLevel.ERROR))
-                || ((this.logLevel === LogLevel.DEBUG) && ((level === LogLevel.ERROR) || (level === LogLevel.INFO)))
-                || ((this.logLevel === LogLevel.TRACE) && ((level === LogLevel.DEBUG) || (level === LogLevel.ERROR) || (level === LogLevel.INFO)))) {
-                console.log(`${this.serviceName} (${level}) | ${correlation} | ${entry}`);
-            }
-        }
-        catch (err) { }
-    }
     async createAuthenticator() {
         if (this.natsJWT) {
             return jwtAuthenticator(this.natsJWT, stringCodec.encode(this.natsSeed));
@@ -130,6 +119,17 @@ export class NATSClient extends EventEmitter {
         if (!verifyResult.token)
             throw 'STS Authorization Verification Failed';
         return verifyResult.token;
+    }
+    logEvent(level, correlation, entry) {
+        try {
+            if ((this.logLevel === level)
+                || ((this.logLevel === LogLevel.INFO) && (level === LogLevel.ERROR))
+                || ((this.logLevel === LogLevel.DEBUG) && ((level === LogLevel.ERROR) || (level === LogLevel.INFO)))
+                || ((this.logLevel === LogLevel.TRACE) && ((level === LogLevel.DEBUG) || (level === LogLevel.ERROR) || (level === LogLevel.INFO)))) {
+                console.log(`${this.serviceName} (${level}) | ${correlation} | ${entry}`);
+            }
+        }
+        catch (err) { }
     }
     registerTopicHandler(topic, topicHandler, queue) {
         try {
