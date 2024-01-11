@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@randomrod/lib-nats-client",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Base library for NATSv2-based microservices",
   "main": "dist/index.js",
   "typings": "./dist/index.d.ts",
