@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import EventEmitter from 'events';
 export interface NATSTopicHandler {
-    (subscription: any): Promise<void>;
+    (subscription: any): Promise<any>;
 }
 export declare enum LogLevel {
     ERROR = "error",

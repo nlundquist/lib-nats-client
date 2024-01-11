@@ -8,7 +8,7 @@ const stringCodec = StringCodec();
 const jsonCodec = JSONCodec();
 
 export interface NATSTopicHandler {
-    (subscription: any): Promise<void>;
+    (subscription: any): Promise<any>;
 }
 
 export enum LogLevel {
