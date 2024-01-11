@@ -59,6 +59,8 @@ export class NATSClient extends EventEmitter {
 
     async init(): Promise<void> {
         try {
+            console.log(`LogLevel set to:  ${this.logLevel}`);
+
             if(!this.natsSeed) throw 'NATS_SEED must be defined in the environment';
 
             let natsConfig: any = {
@@ -129,7 +131,7 @@ export class NATSClient extends EventEmitter {
 
         //Initiate Authorization Session
         const requestID: string = randomUUID();
-        const initiateResult: any = await axios.get(`${this.stsEndpoint}/authorizationSession?requestID=${requestID}`);
+        const initiateResult: any = await axios.get(`${this.stsEndpoint}/authorization/session?requestID=${requestID}`);
         if(!initiateResult.sessionID) throw 'No STS Session established';
 
         //Construct Request & Sign
@@ -145,7 +147,7 @@ export class NATSClient extends EventEmitter {
         };
 
         //Post Authorization Verification
-        const verifyResult: any = await axios.post(`${this.stsEndpoint}/authorizationVerification`, verificationRequest);
+        const verifyResult: any = await axios.post(`${this.stsEndpoint}/authorization/verification`, verificationRequest);
         if(!verifyResult.token) throw 'STS Authorization Verification Failed';
 
         return verifyResult.token;
@@ -197,6 +199,7 @@ export class NATSClient extends EventEmitter {
 
     publishTopic(topic: string, jsonData: any): void {
         try {
+            if(typeof jsonData !== 'object') throw 'Publish Data is not a JSON object';
             this.natsClient.publish(topic, jsonCodec.encode(jsonData));
         } catch(err) {
             this.emit(LogLevel.ERROR, 'NATSClient', `publishTopic (${topic}) Error: ${err}`);
@@ -205,6 +208,7 @@ export class NATSClient extends EventEmitter {
 
     async queryTopic(topic: string, jsonQuery: any, timeOutOverride?: number): Promise<any> {
         try {
+            if(typeof jsonQuery !== 'object') throw 'Query Request Data is not a JSON object';
             const requestOptions: any = { timeout: timeOutOverride ?? this.natsTimeout };
             const response = await this.natsClient.request(topic, jsonCodec.encode(jsonQuery), requestOptions);
             return jsonCodec.decode(response.data);
