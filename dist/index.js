@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import { connect, Events, StringCodec, JSONCodec, jwtAuthenticator } from 'nats';
+import { connect, StringCodec, JSONCodec, jwtAuthenticator } from 'nats';
 const stringCodec = StringCodec();
 const jsonCodec = JSONCodec();
 export var LogLevel;
@@ -30,6 +30,18 @@ export class NATSClient extends EventEmitter {
         process.on('exit', () => {
             this.shutdown();
         });
+        this.on(LogLevel.TRACE, (correlation, eventInfo) => {
+            this.logEvent(LogLevel.TRACE, correlation, eventInfo);
+        });
+        this.on(LogLevel.DEBUG, (correlation, eventInfo) => {
+            this.logEvent(LogLevel.DEBUG, correlation, eventInfo);
+        });
+        this.on(LogLevel.INFO, (correlation, eventInfo) => {
+            this.logEvent(LogLevel.INFO, correlation, eventInfo);
+        });
+        this.on(LogLevel.ERROR, (correlation, eventInfo) => {
+            this.logEvent(LogLevel.ERROR, correlation, eventInfo);
+        });
     }
     async init() {
         try {
@@ -43,15 +55,6 @@ export class NATSClient extends EventEmitter {
             this.emit(LogLevel.INFO, 'NATSClient', `${this.serviceName} Connected to: ${this.natsClient.getServer()}`);
             this.natsClosed = this.natsClient.closed();
             this.monitorNATSConnection();
-            this.natsClient.on(Events.Error, (err) => {
-                this.emit(LogLevel.ERROR, 'NATSClient', `NATS Error:  ${err}`);
-            });
-            this.natsClient.on(Events.Disconnect, () => {
-                this.emit(LogLevel.INFO, 'NATSClient', 'NATS Disconnected');
-            });
-            this.natsClient.on(Events.Reconnect, () => {
-                this.emit(LogLevel.INFO, 'NATSClient', `NATS Reconnected: ${this.natsClient.currentServer.url.host}`);
-            });
         }
         catch (err) {
             this.emit(LogLevel.ERROR, 'NATSClient', `FATAL NATS Initialization Error:  ${err}`);

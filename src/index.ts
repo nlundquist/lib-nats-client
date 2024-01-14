@@ -1,5 +1,5 @@
 import EventEmitter                                                   from 'events';
-import { connect, Events, StringCodec, JSONCodec, jwtAuthenticator }  from 'nats';
+import { connect, StringCodec, JSONCodec, jwtAuthenticator }  from 'nats';
 
 const stringCodec = StringCodec();
 const jsonCodec = JSONCodec();
@@ -43,8 +43,6 @@ export class NATSClient extends EventEmitter {
         });
 
         //Catch Microservices Events
-        //TODO ROD HERE - must convert to new style
-        /*
         this.on(LogLevel.TRACE, (correlation: string, eventInfo: string) => {
             this.logEvent(LogLevel.TRACE, correlation, eventInfo);
         });
@@ -59,36 +57,6 @@ export class NATSClient extends EventEmitter {
             //NOTE:  If Shutdown is desired on Error - define an on Error handler in derived class
         });
 
-        (async () => {
-            for await (const s of nc.status()) {
-              switch (s.type) {
-                case Events.Disconnect:
-                  t.log(`client disconnected - ${s.data}`);
-                  break;
-                case Events.LDM:
-                  t.log("client has been requested to reconnect");
-                  break;
-                case Events.Update:
-                  t.log(`client received a cluster update - ${s.data}`);
-                  break;
-                case Events.Reconnect:
-                  t.log(`client reconnected - ${s.data}`);
-                  break;
-                case Events.Error:
-                  t.log("client got a permissions error");
-                  break;
-                case DebugEvents.Reconnecting:
-                  t.log("client is attempting to reconnect");
-                  break;
-                case DebugEvents.StaleConnection:
-                  t.log("client has a stale connection");
-                  break;
-                default:
-                  t.log(`got an unknown status ${s.type}`);
-              }
-            }
-            })().then();
-         */
     }
 
     async init(): Promise<void> {
@@ -107,6 +75,9 @@ export class NATSClient extends EventEmitter {
             this.natsClosed = this.natsClient.closed();
             this.monitorNATSConnection();
 
+            //TODO ROD HERE - must convert to new style events
+            /*
+
             //Persistent Listeners
             this.natsClient.on(Events.Error, (err: any) => {
                 this.emit(LogLevel.ERROR, 'NATSClient', `NATS Error:  ${err}`);
@@ -119,6 +90,37 @@ export class NATSClient extends EventEmitter {
             this.natsClient.on(Events.Reconnect, () => {
                 this.emit(LogLevel.INFO, 'NATSClient', `NATS Reconnected: ${this.natsClient.currentServer.url.host}`);
             });
+
+            (async () => {
+                for await (const s of nc.status()) {
+                  switch (s.type) {
+                    case Events.Disconnect:
+                      t.log(`client disconnected - ${s.data}`);
+                      break;
+                    case Events.LDM:
+                      t.log("client has been requested to reconnect");
+                      break;
+                    case Events.Update:
+                      t.log(`client received a cluster update - ${s.data}`);
+                      break;
+                    case Events.Reconnect:
+                      t.log(`client reconnected - ${s.data}`);
+                      break;
+                    case Events.Error:
+                      t.log("client got a permissions error");
+                      break;
+                    case DebugEvents.Reconnecting:
+                      t.log("client is attempting to reconnect");
+                      break;
+                    case DebugEvents.StaleConnection:
+                      t.log("client has a stale connection");
+                      break;
+                    default:
+                      t.log(`got an unknown status ${s.type}`);
+                  }
+                }
+                })().then();
+             */
 
         } catch(err) {
             this.emit(LogLevel.ERROR, 'NATSClient', `FATAL NATS Initialization Error:  ${err}`);
