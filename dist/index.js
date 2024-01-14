@@ -104,7 +104,7 @@ export class NATSClient extends EventEmitter {
                     const correlation = `lib-nats-client: ${Date.now()}`;
                     const jsonMessage = jsonCodec.decode(message.data);
                     this.logEvent(LogLevel.TRACE, correlation, JSON.stringify(jsonMessage));
-                    let topicResponse = topicHandler(jsonMessage);
+                    let topicResponse = await topicHandler(jsonMessage);
                     if (typeof topicResponse != "object")
                         topicResponse = { result: topicResponse };
                     if (topicResponse === {})

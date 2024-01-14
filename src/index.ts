@@ -176,7 +176,7 @@ export class NATSClient extends EventEmitter {
                     const jsonMessage: any = jsonCodec.decode(message.data);
                     this.logEvent(LogLevel.TRACE, correlation, JSON.stringify(jsonMessage));
 
-                    let topicResponse: any = topicHandler(jsonMessage);
+                    let topicResponse: any = await topicHandler(jsonMessage);
                     if(typeof topicResponse != "object") topicResponse = { result: topicResponse };
                     if(topicResponse === {}) topicResponse = { result: 'SUCCESS' };
 
