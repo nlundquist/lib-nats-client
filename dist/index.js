@@ -30,18 +30,6 @@ export class NATSClient extends EventEmitter {
         process.on('exit', () => {
             this.shutdown();
         });
-        this.on(LogLevel.TRACE, (correlation, eventInfo) => {
-            this.logEvent(LogLevel.TRACE, correlation, eventInfo);
-        });
-        this.on(LogLevel.DEBUG, (correlation, eventInfo) => {
-            this.logEvent(LogLevel.DEBUG, correlation, eventInfo);
-        });
-        this.on(LogLevel.INFO, (correlation, eventInfo) => {
-            this.logEvent(LogLevel.INFO, correlation, eventInfo);
-        });
-        this.on(LogLevel.ERROR, (correlation, eventInfo) => {
-            this.logEvent(LogLevel.ERROR, correlation, eventInfo);
-        });
     }
     async init() {
         try {
