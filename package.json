@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@randomrod/lib-nats-client",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "Base library for NATSv2-based microservices",
   "main": "dist/index.js",
   "typings": "./dist/index.d.ts",
@@ -15,10 +15,7 @@
   "author": "randomrod",
   "license": "ISC",
   "dependencies": {
-    "axios": "^1.6.5",
-    "nats": "^2.18.0",
-    "nats-jwt": "^0.0.7",
-    "ts-nkeys": "^1.0.16"
+    "nats": "^2.18.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.8",

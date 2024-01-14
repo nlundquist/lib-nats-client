@@ -1,8 +1,5 @@
-import axios from 'axios';
-import { randomUUID } from "crypto";
 import EventEmitter from 'events';
 import { connect, Events, StringCodec, JSONCodec, jwtAuthenticator } from 'nats';
-import nkeys from 'ts-nkeys';
 const stringCodec = StringCodec();
 const jsonCodec = JSONCodec();
 export var LogLevel;
@@ -13,19 +10,23 @@ export var LogLevel;
     LogLevel["TRACE"] = "trace";
 })(LogLevel || (LogLevel = {}));
 export class NATSClient extends EventEmitter {
-    constructor(serviceName) {
+    constructor(serviceName, overrideJWT, overrideSeed) {
         super();
         this.serviceName = serviceName;
         this.logLevel = (process.env.LOG_LEVEL ?? LogLevel.INFO);
-        this.stsEndpoint = process.env.STS_ENDPOINT ?? null;
         this.natsServers = process.env.NATS_SERVERS ?? '127.0.0.1:4222';
-        this.natsNamespace = process.env.NATS_NAMESPACE ?? 'Global';
-        this.natsSeed = process.env.NATS_SEED ?? null;
-        this.natsJWT = process.env.NATS_JWT ?? null;
+        this.natsJWT = null;
+        this.natsSeed = null;
         this.natsTimeout = parseInt(process.env.NATS_TIMEOUT ?? '7500');
         this.natsClient = null;
         this.natsClosed = null;
         this.natsSubscriptions = [];
+        this.natsJWT = overrideJWT ?? process.env.NATS_JWT ?? null;
+        this.natsSeed = overrideSeed ?? process.env.NATS_SEED ?? null;
+        if (!this.natsJWT)
+            throw 'No NATS_JWT environment variable and no overrideJWT supplied to constructor';
+        if (!this.natsSeed)
+            throw 'No NATS_SEED environment variable and no overrideSeed supplied to constructor';
         process.on('exit', () => {
             this.shutdown();
         });
@@ -45,11 +46,9 @@ export class NATSClient extends EventEmitter {
     async init() {
         try {
             console.log(`LogLevel set to:  ${this.logLevel}`);
-            if (!this.natsSeed)
-                throw 'NATS_SEED must be defined in the environment';
             let natsConfig = {
                 servers: this.natsServers,
-                authenticator: await this.createAuthenticator()
+                authenticator: jwtAuthenticator(this.natsJWT, stringCodec.encode(this.natsSeed))
             };
             this.emit(LogLevel.INFO, 'NATSClient', `Attempting to Connect ${this.serviceName} to NATS`);
             this.natsClient = await connect(natsConfig);
@@ -90,36 +89,6 @@ export class NATSClient extends EventEmitter {
         catch (err) {
             this.emit(LogLevel.INFO, 'NATSClient', `NATS Shutdown Error:  ${JSON.stringify(err)}`);
         }
-    }
-    async createAuthenticator() {
-        if (this.natsJWT) {
-            return jwtAuthenticator(this.natsJWT, stringCodec.encode(this.natsSeed));
-        }
-        else {
-            const stsJWT = await this.requestJWTFromSTS();
-            return jwtAuthenticator(stsJWT, stringCodec.encode(this.natsSeed));
-        }
-    }
-    async requestJWTFromSTS() {
-        const nKeyPair = nkeys.fromSeed(Buffer.from(this.natsSeed));
-        const requestID = randomUUID();
-        const initiateResult = await axios.get(`${this.stsEndpoint}/authorization/session?requestID=${requestID}`);
-        if (!initiateResult.sessionID)
-            throw 'No STS Session established';
-        const stsRequest = {
-            requestID: requestID,
-            sessionID: initiateResult.sessionID,
-            namespace: this.natsNamespace,
-            nKeyUser: nKeyPair.getPublicKey(),
-        };
-        const verificationRequest = {
-            request: stsRequest,
-            verification: nKeyPair.sign(Buffer.from(JSON.stringify(stsRequest)))
-        };
-        const verifyResult = await axios.post(`${this.stsEndpoint}/authorization/verification`, verificationRequest);
-        if (!verifyResult.token)
-            throw 'STS Authorization Verification Failed';
-        return verifyResult.token;
     }
     logEvent(level, correlation, entry) {
         try {

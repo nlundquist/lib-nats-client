@@ -1,8 +1,5 @@
-import axios                                                          from 'axios';
-import { randomUUID }                                                 from "crypto";
 import EventEmitter                                                   from 'events';
 import { connect, Events, StringCodec, JSONCodec, jwtAuthenticator }  from 'nats';
-import nkeys                                                          from 'ts-nkeys';
 
 const stringCodec = StringCodec();
 const jsonCodec = JSONCodec();
@@ -20,12 +17,10 @@ export enum LogLevel {
 
 export class NATSClient extends EventEmitter {
     private logLevel: LogLevel         = <LogLevel>(process.env.LOG_LEVEL ?? LogLevel.INFO);
-    private stsEndpoint: string | null = process.env.STS_ENDPOINT ?? null;
 
     private natsServers: string        = process.env.NATS_SERVERS   ?? '127.0.0.1:4222';
-    private natsNamespace: string      = process.env.NATS_NAMESPACE ?? 'Global';
-    private natsSeed: string | null    = process.env.NATS_SEED      ?? null;
-    private natsJWT: string | null     = process.env.NATS_JWT       ?? null;
+    private natsJWT: string | null     = null;
+    private natsSeed: string | null    = null;
 
     private natsTimeout: number      = parseInt(process.env.NATS_TIMEOUT ?? '7500');
 
@@ -33,8 +28,14 @@ export class NATSClient extends EventEmitter {
     private natsClosed: any          = null;
     private natsSubscriptions: any[] = [];
 
-    constructor(private serviceName: string) {
+    constructor(private serviceName: string, overrideJWT?: string, overrideSeed?: string) {
         super();
+
+        this.natsJWT  = overrideJWT  ?? process.env.NATS_JWT  ?? null;
+        this.natsSeed = overrideSeed ?? process.env.NATS_SEED ?? null;
+
+        if(!this.natsJWT)  throw 'No NATS_JWT environment variable and no overrideJWT supplied to constructor';
+        if(!this.natsSeed) throw 'No NATS_SEED environment variable and no overrideSeed supplied to constructor';
 
         //Register Global Cleanup Handler
         process.on('exit', () => {
@@ -61,11 +62,9 @@ export class NATSClient extends EventEmitter {
         try {
             console.log(`LogLevel set to:  ${this.logLevel}`);
 
-            if(!this.natsSeed) throw 'NATS_SEED must be defined in the environment';
-
             let natsConfig: any = {
                 servers:       this.natsServers,
-                authenticator: await this.createAuthenticator()
+                authenticator: jwtAuthenticator(<string>this.natsJWT, stringCodec.encode(<string>this.natsSeed))
             };
 
             this.emit(LogLevel.INFO, 'NATSClient', `Attempting to Connect ${this.serviceName} to NATS`);
@@ -114,43 +113,6 @@ export class NATSClient extends EventEmitter {
         } catch(err) {
             this.emit(LogLevel.INFO, 'NATSClient', `NATS Shutdown Error:  ${JSON.stringify(err)}`);
         }
-    }
-
-    private async createAuthenticator() {
-        if(this.natsJWT) {
-            return jwtAuthenticator(this.natsJWT, stringCodec.encode(<string>this.natsSeed));
-        } else {
-            const stsJWT: string = await this.requestJWTFromSTS();
-            return jwtAuthenticator(stsJWT, stringCodec.encode(<string>this.natsSeed));
-        }
-    }
-
-    private async requestJWTFromSTS() {
-        //Extract the NKey Pair from Seed
-        const nKeyPair: any = nkeys.fromSeed(Buffer.from(<string>this.natsSeed));
-
-        //Initiate Authorization Session
-        const requestID: string = randomUUID();
-        const initiateResult: any = await axios.get(`${this.stsEndpoint}/authorization/session?requestID=${requestID}`);
-        if(!initiateResult.sessionID) throw 'No STS Session established';
-
-        //Construct Request & Sign
-        const stsRequest = {
-            requestID: requestID,
-            sessionID: initiateResult.sessionID,
-            namespace: this.natsNamespace,
-            nKeyUser: nKeyPair.getPublicKey(),
-        };
-        const verificationRequest = {
-            request: stsRequest,
-            verification: nKeyPair.sign(Buffer.from(JSON.stringify(stsRequest)))
-        };
-
-        //Post Authorization Verification
-        const verifyResult: any = await axios.post(`${this.stsEndpoint}/authorization/verification`, verificationRequest);
-        if(!verifyResult.token) throw 'STS Authorization Verification Failed';
-
-        return verifyResult.token;
     }
 
     logEvent(level: LogLevel, correlation: string, entry: string): void {
