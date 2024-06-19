@@ -34,8 +34,12 @@ export class NATSClient extends EventEmitter {
         this.natsJWT  = overrideJWT  ?? process.env.NATS_JWT  ?? null;
         this.natsSeed = overrideSeed ?? process.env.NATS_SEED ?? null;
 
-        if(!this.natsJWT)  throw 'No NATS_JWT environment variable and no overrideJWT supplied to constructor';
-        if(!this.natsSeed) throw 'No NATS_SEED environment variable and no overrideSeed supplied to constructor';
+        if(!this.natsJWT) throw new Error(
+          'No NATS_JWT environment variable and no overrideJWT supplied to constructor'
+        );
+        if(!this.natsSeed) throw new Error(
+          'No NATS_SEED environment variable and no overrideSeed supplied to constructor'
+        );
 
         //Register Global Cleanup Handler
         process.on('exit', () => {
@@ -196,7 +200,7 @@ export class NATSClient extends EventEmitter {
 
     publishTopic(topic: string, jsonData: any): void {
         try {
-            if(typeof jsonData !== 'object') throw 'Publish Data is not a JSON object';
+            if(typeof jsonData !== 'object') throw new Error('Publish Data is not a JSON object');
             this.natsClient.publish(topic, jsonCodec.encode(jsonData));
         } catch(err) {
             this.emit(LogLevel.ERROR, 'NATSClient', `publishTopic (${topic}) Error: ${err}`);
@@ -205,12 +209,13 @@ export class NATSClient extends EventEmitter {
 
     async queryTopic(topic: string, jsonQuery: any, timeOutOverride?: number): Promise<any> {
         try {
-            if(typeof jsonQuery !== 'object') throw 'Query Request Data is not a JSON object';
+            if(typeof jsonQuery !== 'object') throw new Error('Query Request Data is not a JSON object');
             const requestOptions: any = { timeout: timeOutOverride ?? this.natsTimeout };
             const response = await this.natsClient.request(topic, jsonCodec.encode(jsonQuery), requestOptions);
             return jsonCodec.decode(response.data);
         } catch(err) {
-            let error = `queryTopic (${topic}') Error: ${err}`;
+            const message = err instanceof Error ? err.message : String(err)
+            const error = new Error(`queryTopic (${topic}') Error: ${message}`);
             this.emit(LogLevel.ERROR, 'NATSClient', error);
             throw err;
         }
